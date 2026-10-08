@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>지홍 전설 - 여수의 왕을 쓰러뜨려라</title>
+<style>
+  html,body{margin:0;padding:0;background:#111;color:#eee;font-family:'맑은 고딕',sans-serif;overflow:hidden;}
+  #wrap{position:relative;width:960px;height:540px;margin:20px auto;border:2px solid #444;box-shadow:0 0 20px #000;}
+  canvas{display:block;background:#222;}
+  #ui{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;pointer-events:none;font-size:14px;text-shadow:1px 1px 2px #000;}
+  .bar{width:300px;height:16px;background:#333;border:1px solid #777;position:relative;}
+  .bar>div{height:100%;}
+  .hp>div{background:linear-gradient(#6f6,#2a2);}
+  .bhp>div{background:linear-gradient(#f66,#a22);}
+  #seal{position:absolute;top:60px;left:50%;transform:translateX(-50%);width:400px;text-align:center;display:none;font-size:14px;color:#f44;text-shadow:1px 1px 2px #000;font-weight:bold;}
+  #seal .sbar{width:100%;height:8px;background:#333;border:1px solid #a00;margin-top:4px;}
+  #seal .sbar>div{height:100%;background:linear-gradient(#f44,#a00);width:100%;}
+  #story{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);padding:16px 20px;font-size:16px;line-height:1.5;min-height:60px;display:none;}
+  #story b{color:#ffd34d;}
+  #hint{position:absolute;right:10px;bottom:6px;font-size:12px;color:#aaa;}
+  #title,#end,#menu{position:absolute;inset:0;background:#000d;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+  #title h1{font-size:40px;color:#ffd34d;margin:0 0 10px;letter-spacing:4px;}
+  #title p{margin:4px;color:#ccc;}
+  button{background:#ffd34d;border:0;padding:10px 20px;font-weight:bold;font-size:15px;cursor:pointer;margin:4px;border-radius:4px;color:#111;}
+  button:disabled{background:#555;color:#999;cursor:not-allowed;}
+  #end{display:none;}
+  #menu{display:none;background:#000e;}
+  #menu .room{background:#1a1410;border:2px solid #ffd34d;border-radius:8px;padding:20px 30px;max-width:820px;width:88%;}
+  #menu h2{color:#ffd34d;margin:0 0 6px;}
+  #menu .sub{color:#aaa;font-size:13px;margin-bottom:14px;}
+  .panels{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;}
+  .panel{background:#2a2017;border:1px solid #665039;border-radius:6px;padding:12px;width:240px;text-align:left;font-size:13px;}
+  .panel h3{margin:0 0 8px;color:#ffd34d;font-size:16px;text-align:center;}
+  .stat{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dashed #443;}
+  .gold{color:#ffd34d;font-weight:bold;font-size:18px;margin:8px 0;}
+  .msg{color:#8fd;font-size:12px;height:16px;margin-top:4px;}
+  .msg.err{color:#f88;}
+  .btnrow{display:flex;flex-direction:column;align-items:center;margin-top:16px;}
+  .exitBtn{font-size:17px;padding:14px 32px;background:#ff8a3d;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="540"></canvas>
+  <div id="ui">
+    <div>
+      <div>지홍 HP</div>
+      <div class="bar hp"><div id="hpbar" style="width:100%"></div></div>
+    </div>
+    <div id="stageLabel" style="font-size:18px;color:#ffd34d;">프롤로그</div>
+    <div style="text-align:right;">
+      <div id="bossName">　</div>
+      <div class="bar bhp"><div id="bhpbar" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div id="seal">🔒 <span id="sealText">공격 봉인</span><div class="sbar"><div id="sealBar"></div></div></div>
+  <div id="story"><div id="storyText"></div><div id="hint">[Enter] 계속</div></div>
+
+  <div id="title">
+    <h1>지홍 전설</h1>
+    <p>태어나서 처음 방을 나선 히키코모리, 세상이 애니로 보이기 시작했다.</p>
+    <p style="color:#888">이동 ← → / 점프 ↑ / 공격 J / 발차기 K / 대시 Shift / 대사 Enter</p>
+    <button onclick="startGame()">게임 시작</button>
+  </div>
+
+  <div id="end">
+    <h1 id="endTitle" style="color:#ffd34d;">　</h1>
+    <p id="endText" style="max-width:600px;"></p>
+    <button onclick="location.reload()">처음부터</button>
+  </div>
+
+  <div id="menu">
+    <div class="room">
+      <h2>🏠 지홍의 방</h2>
+      <div class="sub" id="menuSub">현실로 돌아왔다... 다시 나가기 전에 몸을 키우자.</div>
+      <div class="gold">보유 금액: <span id="goldAmt">0</span>원</div>
+
+      <div class="panels">
+        <div class="panel">
+          <h3>⛏ 아오지 탄광 체험권</h3>
+          <div style="font-size:12px;color:#ccc;margin-bottom:8px;">
+            곡괭이 한 번에 50~150원.<br>인권은 없다. 돈만 있다.
+          </div>
+          <button id="mineBtn" onclick="mine()" style="width:100%;">곡괭이질 (쿨 0.6초)</button>
+          <div class="msg" id="mineMsg">　</div>
+        </div>
+
+        <div class="panel">
+          <h3>🏋 지홍 헬스장</h3>
+          <div style="font-size:12px;color:#ccc;margin-bottom:8px;" id="gymDesc">
+            입장권 200원이 필요하다.
+          </div>
+          <div id="gymLocked">
+            <button onclick="buyGym()" style="width:100%;">입장권 구매 (200원)</button>
+          </div>
+          <div id="gymUnlocked" style="display:none;">
+            <button onclick="train('arm')" style="width:100%;">💪 팔 운동 - 120원 (공격력 +3)</button>
+            <button onclick="train('abs')" style="width:100%;">🧱 복근 운동 - 150원 (최대HP +15, 맷집 +1)</button>
+            <button onclick="train('leg')" style="width:100%;">🦵 다리 운동 - 100원 (점프+0.8, 대시+2)</button>
+          </div>
+          <div class="msg" id="gymMsg">　</div>
+        </div>
+
+        <div class="panel">
+          <h3>📊 지홍 스탯</h3>
+          <div class="stat"><span>공격력</span><span id="sAtk">0</span></div>
+          <div class="stat"><span>최대 HP</span><span id="sHp">0</span></div>
+          <div class="stat"><span>맷집(피해감소)</span><span id="sArm">0</span></div>
+          <div class="stat"><span>점프력</span><span id="sJmp">0</span></div>
+          <div class="stat"><span>대시 거리</span><span id="sDash">0</span></div>
+          <div style="margin-top:10px;font-size:12px;color:#aaa;">
+            쓰러진 스테이지:<br><b id="menuStage" style="color:#ffd34d;">-</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="btnrow">
+        <div style="color:#aaa;font-size:12px;margin-bottom:6px;">
+          준비됐으면 방 밖으로 나가자. 쓰러진 스테이지부터 다시 시작한다. (단축키: ESC)
+        </div>
+        <div>
+          <button class="exitBtn" onclick="retryStage()">🚪 집 밖으로 나가기</button>
+          <button onclick="location.reload()" style="background:#555;color:#ddd;">처음부터 다시</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const cvs = document.getElementById("game");
+const ctx = cvs.getContext("2d");
+const W = cvs.width, H = cvs.height;
+const GROUND = 460;
+
+// ===== 입력 =====
+const keys = {};
+let justPressed = {};
+addEventListener("keydown", e=>{
+  if(!keys[e.code]) justPressed[e.code]=true;
+  keys[e.code]=true;
+  if(["ArrowLeft","ArrowRight","ArrowUp","Space"].includes(e.code)) e.preventDefault();
+  if(e.code==="Escape" && state==="menu") retryStage();
+});
+addEventListener("keyup", e=>{ keys[e.code]=false; });
+
+// ===== 상태 =====
+let state = "title";
+let stageIndex = 0;
+let storyQueue = [];
+const storyEl = document.getElementById("story");
+const storyText = document.getElementById("storyText");
+const sealUI = document.getElementById("seal");
+const sealBar = document.getElementById("sealBar");
+const sealText = document.getElementById("sealText");
+
+// ===== 영구 스탯 =====
+const progress = {
+  gold: 0, gymUnlocked: false,
+  atkBonus: 0, hpBonus: 0, armor: 0,
+  jumpBonus: 0, dashBonus: 0,
+};
+
+// ===== 플레이어 =====
+const player = {
+  x: 150, y: GROUND, vx:0, vy:0, w:40, h:70,
+  hp: 100, maxhp: 100,
+  dir: 1, onGround:true,
+  attackTimer:0, attackType:0, attackHit:false,
+  invTimer:0, dashCd:0,
+  sealed:0,     // 공격 봉인 남은 프레임
+};
+
+function applyStatsToPlayer(){
+  player.maxhp = 100 + progress.hpBonus;
+  player.hp = player.maxhp;
+  player.sealed = 0;
+}
+
+// ===== 적 =====
+let enemies = [];
+let boss = null;
+let effects = [];
+
+const mookPresets = {
+  cop:    {body:"#2a4b8d", head:"#f1c27d", name:"경찰",       hp:40, speed:1.6, dmg:8},
+  fire:   {body:"#b22222", head:"#f1c27d", name:"소방대원",   hp:40, speed:1.6, dmg:8},
+  dog:    {body:"#8b5a2b", head:"#8b5a2b", name:"개",         hp:30, speed:2.4, dmg:8, animal:true},
+  cat:    {body:"#555",    head:"#555",    name:"고양이",     hp:20, speed:2.6, dmg:8, animal:true},
+  guard:  {body:"#3b3b3b", head:"#f1c27d", name:"간수",       hp:55, speed:1.8, dmg:12},
+  inmate: {body:"#ff7a00", head:"#f1c27d", name:"죄수",       hp:45, speed:2.0, dmg:10},
+  girl:   {body:"#ff6fa5", head:"#f1c27d", name:"여자",       hp:35, speed:2.2, dmg:9},
+  fcat:   {body:"#d9b382", head:"#d9b382", name:"암컷 고양이", hp:22, speed:2.8, dmg:8, animal:true},
+  fdog:   {body:"#efe3c9", head:"#efe3c9", name:"암컷 개",     hp:32, speed:2.5, dmg:9, animal:true},
+};
+
+function spawnMook(type, x){
+  const p = mookPresets[type];
+  enemies.push({
+    type, x, y:GROUND, vx:0, vy:0,
+    w: p.animal?46:36,
+    h: p.animal?36:66,
+    hp: p.hp, maxhp: p.hp,
+    dir: -1, onGround:true, atkCd:0, hurt:0,
+    color:p.body, head:p.head, name:p.name,
+    speed:p.speed, dmg:p.dmg, animal:!!p.animal,
+  });
+}
+
+function spawnBoss(kind){
+  const presets = {
+    seungwoo: {name:"이승우",            hp:120, color:"#4caf50", head:"#f1c27d", speed:1.8, dmg:10, size:[46,74]},
+    yegang:   {name:"예강 - 지홍의 썸남", hp:220, color:"#00bcd4", head:"#f1c27d", speed:2.3, dmg:14, size:[48,76]},
+    sangwook: {name:"박상욱",            hp:260, color:"#9c27b0", head:"#f1c27d", speed:2.0, dmg:14, size:[50,78]},
+    tyson:    {name:"마이클 타이슨",     hp:240, color:"#222",    head:"#5d3a1a", speed:2.6, dmg:18, size:[54,78]},
+    junsung:  {name:"김준성 - 여수의 왕", hp:600, color:"#d4af37", head:"#f1c27d", speed:2.8, dmg:24, size:[58,86]},
+  };
+  const p = presets[kind];
+  return {
+    kind, name:p.name, x:800, y:GROUND, vx:0, vy:0,
+    w:p.size[0], h:p.size[1],
+    hp:p.hp, maxhp:p.hp,
+    dir:-1, onGround:true, atkCd:0, hurt:0,
+    color:p.color, head:p.head, speed:p.speed, dmg:p.dmg,
+    phase:0,
+    revives: kind==="junsung" ? 2 : 0,
+    sealCd: kind==="junsung" ? 0 : -1,     // 0이면 즉시 봉인 발동
+    sealActive: 0,                          // 봉인 지속 프레임
+  };
+}
+
+function addHit(x,y,text,color){
+  effects.push({x,y,text,life:30, color:color||"#fff"});
+}
+function addSlam(x,y){
+  effects.push({x,y,text:"",life:20, color:"#ffd34d", slam:true});
+}
+function addFloatText(x,y,text,color){
+  effects.push({x,y,text,life:60,color:color||"#fff",big:true});
+}
+
+// ===== 스테이지 =====
+let stageWave = 0;
+const stages = [
+  { // 0
+    label:"프롤로그",
+    story:[
+      "<b>지홍:</b> ...3년 만의 바깥...? 햇빛이 뜨겁다...",
+      "<b>지홍:</b> 잠깐. 이 색감, 이 BGM, 이 바람 소리... 설마 여기 애니 속인가?",
+      "<b>지홍:</b> 그렇다면 저기 보이는 저놈들... 전부 악당이잖아!",
+      "<b>지홍:</b> 각성한다. 주인공으로서."
+    ],
+    setup:()=>{}, clearWhen:()=>true,
+  },
+  { // 1
+    label:"STAGE 1 - 소꿉친구",
+    story:[
+      "<b>이승우:</b> 지홍아! 밖에 나왔네?! 얼마만이야 진짜!",
+      "<b>지홍:</b> (금발 상냥한 캐릭터... 전형적인 배신 플래그 보스다!)",
+      "<b>지홍:</b> 각오해라, 최종 보스의 1단계!"
+    ],
+    setup:()=>{ boss = spawnBoss("seungwoo"); setBossUI(); },
+    clearWhen:()=> boss && boss.hp<=0,
+    afterStory:[
+      "<b>이승우:</b> 지홍아... 왜... 나 네 친구잖아...",
+      "<b>박상욱:</b> 야 이 미친놈아!! 승우가 뭘 잘못했냐?!",
+      "<b>김준성:</b> ...상욱아. 저 눈빛, 말 안 통한다.",
+      "<b>김준성:</b> 하지만 저놈 레벨이 낮다. 경찰에 넘기자."
+    ]
+  },
+  { // 2
+    label:"STAGE 2 - 여수 도심",
+    story:[
+      "<b>지홍:</b> 신고를 당한 모양이군. 몰려오는 쫄개들...",
+      "<b>지홍:</b> 전부 쓸어버린다!"
+    ],
+    setup:()=>{
+      spawnMook("cop", 800); spawnMook("dog", 900);
+      spawnMook("fire", 1000); spawnMook("cat", 700);
+      stageWave = 1;
+    },
+    clearWhen:()=> enemies.length===0 && stageWave>=3,
+    tick:()=>{
+      if(enemies.length===0){
+        if(stageWave===1){ spawnMook("cop",800); spawnMook("fire",900); spawnMook("dog",1000); stageWave=2; }
+        else if(stageWave===2){ spawnMook("fire",800); spawnMook("fire",900); spawnMook("cat",750); spawnMook("dog",1000); stageWave=3; }
+      }
+    },
+    afterStory:[
+      "<b>지홍:</b> 쿨럭... 숫자가 너무 많아...",
+      "<b>경찰:</b> 폭행범 체포! 끌고 가!",
+      "<b>지홍:</b> (의식이 가물가물... 다음 눈을 떴을 땐...)"
+    ]
+  },
+  { // 3 - NEW 감옥 탈출
+    label:"STAGE 3 - 감옥 탈출",
+    story:[
+      "<b>지홍:</b> ...여기는... 감옥? 애니 속 주인공이 투옥된다고?!",
+      "<b>지홍:</b> 전형적인 각성 이벤트다. 간수들과 쫄개 죄수들을 뚫고 나간다!",
+      "<b>간수:</b> 이 미친놈이! 조용히 못해?!"
+    ],
+    setup:()=>{
+      spawnMook("guard", 820); spawnMook("inmate", 920);
+      stageWave = 1;
+    },
+    clearWhen:()=> enemies.length===0 && stageWave>=2,
+    tick:()=>{
+      if(enemies.length===0 && stageWave===1){
+        spawnMook("guard",780); spawnMook("guard",900);
+        spawnMook("inmate",700); spawnMook("inmate",1000);
+        stageWave = 2;
+      }
+    },
+    afterStory:[
+      "<b>지홍:</b> 하하하! 감옥 탈출! 이걸로 레벨 업했지!",
+      "<b>지홍:</b> 어라... 저기 서 있는 저 녀석은..."
+    ]
+  },
+  { // 4 - NEW 예강
+    label:"STAGE 4 - 썸남 예강",
+    story:[
+      "<b>예강:</b> 지홍아... 소식 들었어. 왜 이렇게 됐어...",
+      "<b>지홍:</b> (예강이... 내 썸남이었던... 하지만 지금은...)",
+      "<b>지홍:</b> 넌 내 히로인이 될 수 있을까? 시험해보겠다!"
+    ],
+    setup:()=>{ boss = spawnBoss("yegang"); setBossUI(); },
+    clearWhen:()=> boss && boss.hp<=0,
+    afterStory:[
+      "<b>예강:</b> 지홍아... 나... 널 좋아했는데...",
+      "<b>지홍:</b> 후... 넌 내 진정한 히로인이 아니였어...",
+      "<b>지홍:</b> (사라지는 썸남을 뒤로 하고, 나는 다시 걸음을 옮긴다.)",
+      "<b>박상욱:</b> 거기 서라 지홍!! 승우 복수, 내가 한다!"
+    ]
+  },
+  { // 5 - 상욱 + 타이슨
+    label:"STAGE 5 - 여수의 또다른 반쪽",
+    story:[
+      "<b>박상욱:</b> 나 혼자서는 못 이길 수도 있지. 그래서 데려왔다.",
+      "<b>마이클 타이슨:</b> Let's go.",
+      "<b>지홍:</b> 중간 보스 2연전... 애니 왕도 전개네. 좋다!"
+    ],
+    setup:()=>{
+      boss = spawnBoss("sangwook");
+      const t = spawnBoss("tyson");
+      t.x = 880; enemies.push(t);
+      setBossUI();
+    },
+    clearWhen:()=> boss && boss.hp<=0 && enemies.every(e=>e.hp<=0),
+    afterStory:[
+      "<b>박상욱:</b> 크윽... 타이슨 형님까지...",
+      "<b>박상욱:</b> 준성아... 뒤는 부탁한다. 넌 나보다 강하잖아.",
+      "<b>김준성:</b> ...걱정 마. 상욱아, 넌 내 라이벌이자 전우다.",
+      "<b>지홍:</b> 승리의 순간... 그런데 왜 이렇게 외롭지?",
+      "<b>지홍:</b> 그래. 주인공에겐 히로인이 필요하다!"
+    ]
+  },
+  { // 6 - NEW 고백 거절
+    label:"STAGE 6 - 운명의 고백",
+    story:[
+      "<b>지홍:</b> 거기 아가씨! 저와 함께 세계를 구합시다!",
+      "<b>여자:</b> 미친놈아 저리 가!",
+      "<b>지홍:</b> ...저쪽 암컷 고양이! 너라면 나를 알아줄거야!",
+      "<b>암컷 고양이:</b> 캬아악!! (할퀴기)",
+      "<b>지홍:</b> ...좋다. 전부 시험해주지!"
+    ],
+    setup:()=>{
+      spawnMook("girl", 800);
+      spawnMook("fcat", 900);
+      spawnMook("fdog", 700);
+      stageWave = 1;
+    },
+    clearWhen:()=> enemies.length===0 && stageWave>=2,
+    tick:()=>{
+      if(enemies.length===0 && stageWave===1){
+        spawnMook("girl",780); spawnMook("girl",880);
+        spawnMook("fcat",700); spawnMook("fdog",980);
+        stageWave=2;
+      }
+    },
+    afterStory:[
+      "<b>지홍:</b> 너네들도 내 히로인이 될 수 있는 기회를 뿌리치군...",
+      "<b>지홍:</b> 좋다. 히로인 없이 나 혼자 최종 보스를 쓰러뜨린다!",
+      "<b>김준성:</b> ...지홍. 거기까지다."
+    ]
+  },
+  { // 7 - FINAL 준성
+    label:"FINAL - 여수의 왕",
+    story:[
+      "<b>김준성:</b> 지홍. 네가 보고 있는 세상이 애니라면,",
+      "<b>김준성:</b> 그 애니의 최종 보스는 나다.",
+      "<b>김준성:</b> 그리고 너의 '공격'이라는 재능, 내가 봉인한다.",
+      "<b>지홍:</b> 바라던 바다!!"
+    ],
+    setup:()=>{ boss = spawnBoss("junsung"); setBossUI(); },
+    clearWhen:()=> boss && boss.hp<=0 && boss.revives<=0,
+    afterStory:[
+      "<b>김준성:</b> 하하... 졌다. 상욱이의 몫까지... 네가 받아라...",
+      "<b>지홍:</b> ...어라? 세상이 다시 또렷해진다...",
+      "<b>지홍:</b> 승우야... 상욱아... 준성아... 예강아... 내가 무슨 짓을...",
+      "<b>지홍:</b> (이것은 폐인 지홍이 다시 사람으로 돌아가는 긴 여정의 서막이었다.)"
+    ]
+  }
+];
+
+function setBossUI(){
+  document.getElementById("bossName").textContent = boss ? boss.name : "　";
+}
+
+// ===== 스토리 =====
+let storyDone = null;
+function playStory(lines, onDone){
+  storyQueue = lines.slice();
+  state = "story";
+  storyEl.style.display = "block";
+  nextStoryLine(onDone);
+}
+function nextStoryLine(onDone){
+  if(onDone) storyDone = onDone;
+  if(storyQueue.length===0){
+    storyEl.style.display = "none";
+    state = "play";
+    const cb = storyDone; storyDone = null;
+    if(cb) cb();
+    return;
+  }
+  storyText.innerHTML = storyQueue.shift();
+}
+
+function enterStage(i){
+  stageIndex = i;
+  const s = stages[i];
+  document.getElementById("stageLabel").textContent = s.label;
+  enemies = []; boss = null; setBossUI();
+  applyStatsToPlayer();
+  player.x = 150;
+  playStory(s.story, ()=>{ s.setup(); });
+}
+
+function startGame(){
+  document.getElementById("title").style.display = "none";
+  state = "play";
+  enterStage(0);
+}
+
+// ===== 패배 메뉴 =====
+function openDeathMenu(){
+  state = "menu";
+  document.getElementById("menu").style.display = "flex";
+  document.getElementById("menuStage").textContent = stages[stageIndex].label;
+  document.getElementById("menuSub").textContent =
+    stageIndex===0
+      ? "방 밖에 나가지도 못하고 쓰러졌다..."
+      : `${stages[stageIndex].label}에서 쓰러졌다. 다시 도전하자.`;
+  sealUI.style.display = "none";
+  refreshMenuUI();
+}
+function refreshMenuUI(){
+  document.getElementById("goldAmt").textContent = progress.gold;
+  document.getElementById("sAtk").textContent = "+"+progress.atkBonus;
+  document.getElementById("sHp").textContent = (100+progress.hpBonus)+" (+"+progress.hpBonus+")";
+  document.getElementById("sArm").textContent = "-"+progress.armor;
+  document.getElementById("sJmp").textContent = "+"+progress.jumpBonus.toFixed(1);
+  document.getElementById("sDash").textContent = "+"+progress.dashBonus;
+  document.getElementById("gymLocked").style.display = progress.gymUnlocked?"none":"block";
+  document.getElementById("gymUnlocked").style.display = progress.gymUnlocked?"block":"none";
+  if(progress.gymUnlocked) document.getElementById("gymDesc").textContent = "오늘도 쇠질로 폐인 탈출.";
+}
+
+let mineCd = 0;
+function mine(){
+  if(mineCd>0) return;
+  const earn = 50 + Math.floor(Math.random()*101);
+  progress.gold += earn;
+  const msg = document.getElementById("mineMsg");
+  msg.classList.remove("err");
+  const flavor = ["삐질삐질... +","석탄 한 덩이 획득! +","감독관의 눈을 피해 +","허리가 나갈 뻔 +","오늘도 무사히 +"];
+  msg.textContent = flavor[Math.floor(Math.random()*flavor.length)] + earn + "원";
+  mineCd = 36;
+  const btn = document.getElementById("mineBtn");
+  btn.disabled = true;
+  setTimeout(()=>{ btn.disabled=false; mineCd=0; }, 600);
+  refreshMenuUI();
+}
+function buyGym(){
+  const msg = document.getElementById("gymMsg");
+  if(progress.gold < 200){ msg.classList.add("err"); msg.textContent = "돈이 부족하다! 아오지로 가라."; return; }
+  progress.gold -= 200; progress.gymUnlocked = true;
+  msg.classList.remove("err"); msg.textContent = "헬스장 등록 완료! 쇠질을 시작하자.";
+  refreshMenuUI();
+}
+function train(kind){
+  const msg = document.getElementById("gymMsg");
+  const costs = {arm:120, abs:150, leg:100};
+  const cost = costs[kind];
+  if(progress.gold < cost){ msg.classList.add("err"); msg.textContent = "돈이 부족하다! ("+cost+"원 필요)"; return; }
+  progress.gold -= cost;
+  msg.classList.remove("err");
+  if(kind==="arm"){ progress.atkBonus += 3; msg.textContent="팔근육 뽐뿌! 공격력 +3"; }
+  if(kind==="abs"){ progress.hpBonus += 15; progress.armor += 1; msg.textContent="복근 완성! HP +15, 피해감소 +1"; }
+  if(kind==="leg"){ progress.jumpBonus += 0.8; progress.dashBonus += 2; msg.textContent="하체 완성! 점프/대시 강화"; }
+  refreshMenuUI();
+}
+function retryStage(){
+  document.getElementById("menu").style.display = "none";
+  const s = stages[stageIndex];
+  document.getElementById("stageLabel").textContent = s.label;
+  enemies = []; boss = null; setBossUI();
+  applyStatsToPlayer();
+  player.x = 150; player.vy = 0; player.vx = 0;
+  player.attackTimer = 0; player.invTimer = 30;
+  stageWave = 0;
+  state = "play";
+  s.setup();
+}
+
+// ===== 전투 =====
+function playerAttackBox(){
+  if(player.attackTimer<=0) return null;
+  const reach = player.attackType===2 ? 60 : 48;
+  const h = player.attackType===2 ? 40 : 30;
+  const x = player.dir>0 ? player.x+player.w/2 : player.x-player.w/2 - reach;
+  const base = player.attackType===2?22:12;
+  return {x, y: player.y - player.h/2 - 10, w:reach, h, dmg: base + progress.atkBonus};
+}
+function enemyAttackBox(e){
+  if(e.atkCd<=0 || e.atkCd>18) return null;
+  const reach = 40;
+  const x = e.dir>0 ? e.x+e.w/2 : e.x-e.w/2 - reach;
+  return {x, y:e.y-e.h/2-10, w:reach, h:30, dmg:e.dmg};
+}
+function rectHit(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+function entityRect(e){ return {x:e.x-e.w/2, y:e.y-e.h, w:e.w, h:e.h}; }
+
+// ===== 봉인 UI =====
+function updateSealUI(){
+  if(boss && boss.kind==="junsung"){
+    sealUI.style.display = "block";
+    if(player.sealed>0){
+      sealText.textContent = "공격 봉인! " + (player.sealed/60).toFixed(1) + "초";
+      sealBar.style.width = (player.sealed/180*100) + "%";
+      sealBar.style.background = "linear-gradient(#f44,#a00)";
+    } else {
+      const next = Math.max(0, boss.sealCd/60);
+      sealText.textContent = "다음 봉인까지 " + next.toFixed(1) + "초";
+      sealBar.style.width = ((900-boss.sealCd)/900*100) + "%";
+      sealBar.style.background = "linear-gradient(#555,#888)";
+    }
+  } else {
+    sealUI.style.display = "none";
+  }
+}
+
+// ===== 업데이트 =====
+function update(){
+  if(state==="story"){
+    if(justPressed["Enter"] || justPressed["NumpadEnter"]) nextStoryLine();
+    justPressed = {};
+    return;
+  }
+  if(state!=="play"){ justPressed={}; return; }
+
+  const left = keys["ArrowLeft"]||keys["KeyA"];
+  const right = keys["ArrowRight"]||keys["KeyD"];
+  const jump = justPressed["ArrowUp"]||justPressed["KeyW"]||justPressed["Space"];
+  const atk1 = justPressed["KeyJ"];
+  const atk2 = justPressed["KeyK"];
+  const dash = justPressed["ShiftLeft"]||justPressed["ShiftRight"];
+
+  let speed = 3.5;
+  player.vx = 0;
+  if(left){ player.vx = -speed; player.dir=-1; }
+  if(right){ player.vx = speed; player.dir=1; }
+
+  if(dash && player.dashCd<=0){
+    player.vx = player.dir * (11 + progress.dashBonus);
+    player.dashCd = 30;
+    player.invTimer = Math.max(player.invTimer, 10);
+  }
+  if(player.dashCd>0) player.dashCd--;
+
+  if(jump && player.onGround){
+    player.vy = -(13 + progress.jumpBonus);
+    player.onGround = false;
+  }
+
+  // 공격 봉인 체크
+  if(player.sealed>0){
+    player.sealed--;
+    // 봉인 중에는 입력 받되 공격 시작 불가
+  } else if(player.attackTimer<=0){
+    if(atk1){ player.attackTimer=18; player.attackType=1; player.attackHit=false; }
+    else if(atk2){ player.attackTimer=28; player.attackType=2; player.attackHit=false; }
+  }
+  if(player.attackTimer>0) player.attackTimer--;
+
+  player.vy += 0.7;
+  player.x += player.vx;
+  player.y += player.vy;
+  if(player.y>=GROUND){ player.y=GROUND; player.vy=0; player.onGround=true; }
+  if(player.x<30) player.x=30;
+  if(player.x>W-30) player.x=W-30;
+  if(player.invTimer>0) player.invTimer--;
+
+  const pab = playerAttackBox();
+  if(pab && !player.attackHit){
+    const targets = enemies.concat(boss?[boss]:[]);
+    for(const t of targets){
+      if(!t || t.hp<=0) continue;
+      if(rectHit(pab, entityRect(t))){
+        t.hp -= pab.dmg;
+        t.hurt = 10;
+        t.vx = player.dir * 4;
+        addHit(t.x, t.y-t.h-10, "-"+pab.dmg);
+        player.attackHit = true;
+        if(player.attackType===2){ addSlam(t.x, t.y-10); t.vy=-6; t.onGround=false; }
+        break;
+      }
+    }
+  }
+
+  for(const e of enemies){
+    if(e.hp<=0) continue;
+    const dx = player.x - e.x;
+    e.dir = dx<0?-1:1;
+    const dist = Math.abs(dx);
+    if(e.atkCd>0) e.atkCd--;
+    if(e.hurt>0) e.hurt--;
+    if(e.hurt<=0){
+      if(dist>50) e.vx = e.dir * e.speed;
+      else { e.vx = 0; if(e.atkCd<=0) e.atkCd = 40; }
+    }
+    e.vy += 0.7; e.x += e.vx; e.y += e.vy;
+    if(e.y>=GROUND){ e.y=GROUND; e.vy=0; e.onGround=true; }
+    if(e.x<20) e.x=20; if(e.x>W-20) e.x=W-20;
+    e.vx *= 0.85;
+
+    const eab = enemyAttackBox(e);
+    if(eab && rectHit(eab, entityRect(player)) && player.invTimer<=0){
+      const dmg = Math.max(1, eab.dmg - progress.armor);
+      player.hp -= dmg;
+      player.invTimer = 40;
+      player.vx = e.dir * 6; player.vy = -5; player.onGround = false;
+      addHit(player.x, player.y-player.h-10, "-"+dmg, "#f88");
+    }
+  }
+
+  if(boss){
+    const b = boss;
+
+    // 준성 봉인 패시브
+    if(b.kind==="junsung" && b.hp>0){
+      if(b.sealActive>0){
+        b.sealActive--;
+      } else {
+        if(b.sealCd<=0){
+          // 봉인 발동
+          player.sealed = 180;        // 3초
+          player.attackTimer = 0;      // 진행중 공격 캔슬
+          b.sealActive = 180;
+          b.sealCd = 900;             // 다음 봉인까지 15초
+          addFloatText(player.x, player.y-player.h-30, "🔒 공격 봉인!", "#f44");
+        } else {
+          b.sealCd--;
+        }
+      }
+    }
+
+    if(b.hp>0){
+      const dx = player.x - b.x;
+      b.dir = dx<0?-1:1;
+      const dist = Math.abs(dx);
+      if(b.atkCd>0) b.atkCd--;
+      if(b.hurt>0) b.hurt--;
+      if(b.hp < b.maxhp*0.5) b.phase = 1;
+
+      if(b.hurt<=0){
+        let sp = b.speed * (b.phase?1.3:1);
+        let atkInterval = b.phase?28:40;
+        // 준성이는 더 공격적
+        if(b.kind==="junsung"){
+          sp *= 1.1;
+          atkInterval = b.phase?22:32;
+        }
+        if(dist>60) b.vx = b.dir*sp;
+        else { b.vx=0; if(b.atkCd<=0) b.atkCd = atkInterval; }
+      }
+
+      b.vy += 0.7; b.x += b.vx; b.y += b.vy;
+      if(b.y>=GROUND){ b.y=GROUND; b.vy=0; b.onGround=true; }
+      if(b.x<30) b.x=30; if(b.x>W-30) b.x=W-30;
+      b.vx *= 0.85;
+
+      const bab = enemyAttackBox(b);
+      if(bab && rectHit(bab, entityRect(player)) && player.invTimer<=0){
+        const dmg = Math.max(1, bab.dmg - progress.armor);
+        player.hp -= dmg;
+        player.invTimer = 40;
+        player.vx = b.dir * 7; player.vy = -6; player.onGround = false;
+        addHit(player.x, player.y-player.h-10, "-"+dmg, "#f88");
+      }
+    } else {
+      // 준성 부활
+      if(b.kind==="junsung" && b.revives>0){
+        b.revives--;
+        b.hp = b.maxhp;
+        b.phase = 0;
+        b.hurt = 0;
+        b.atkCd = 0;
+        b.x = W-120; b.y = GROUND;
+        b.vx=0; b.vy=0;
+        // 부활마다 강화
+        b.speed += 0.3;
+        b.dmg += 3;
+        // 색 변경 (단계별)
+        b.color = b.revives===1 ? "#ff5722" : "#9c0303";
+        // 부활 봉인 즉시 재발동
+        b.sealCd = 0;
+        b.sealActive = 0;
+        addFloatText(b.x, b.y-b.h-40, "⚡ 각성!! " + (2-b.revives) + "단계", "#ffd34d");
+        player.invTimer = 60; // 숨 돌릴 시간
+      }
+    }
+  }
+
+  enemies = enemies.filter(e=>{
+    if(e.hp<=0){
+      effects.push({x:e.x,y:e.y-e.h/2,text:"K.O.",life:40,color:"#ffd34d"});
+      progress.gold += (e.kind==="tyson") ? 100 : 20;
+      return false;
+    }
+    return true;
+  });
+
+  document.getElementById("hpbar").style.width = Math.max(0,player.hp)/player.maxhp*100+"%";
+  if(boss){
+    const totalHp = boss.maxhp * (1 + boss.revives + (boss.hp>0?0:0));
+    document.getElementById("bhpbar").style.width = Math.max(0,boss.hp)/boss.maxhp*100+"%";
+  } else {
+    document.getElementById("bhpbar").style.width = "0%";
+  }
+  updateSealUI();
+
+  if(player.hp<=0){
+    openDeathMenu();
+    justPressed = {};
+    return;
+  }
+
+  const s = stages[stageIndex];
+  if(s.tick) s.tick();
+
+  if(s.clearWhen()){
+    if(boss && boss.hp<=0 && (boss.revives||0)<=0){
+      progress.gold += 150;
+      boss = null;
+      sealUI.style.display = "none";
+    }
+    if(s.afterStory){
+      playStory(s.afterStory, ()=>{
+        if(stageIndex+1 < stages.length) enterStage(stageIndex+1);
+        else {
+          state="end";
+          document.getElementById("endTitle").textContent = "ENDING";
+          document.getElementById("endText").innerHTML = "여수의 두 왕을 쓰러뜨린 지홍.<br>그러나 그가 이긴 것은 왕이 아니라, 그저 소중했던 친구들이었다.<br><br>FIN.";
+          document.getElementById("end").style.display = "flex";
+        }
+      });
+    } else {
+      if(stageIndex+1 < stages.length) enterStage(stageIndex+1);
+    }
+  }
+
+  for(const f of effects) f.life--;
+  effects = effects.filter(f=>f.life>0);
+
+  justPressed = {};
+}
+
+// ===== 그리기 =====
+function drawBg(){
+  const g = ctx.createLinearGradient(0,0,0,H);
+  const bgSets = [
+    ["#1b2735","#2a4b8d"], // 프롤로그
+    ["#ffb67a","#ffd0a8"], // 승우
+    ["#4a6572","#9aa7b0"], // 도심
+    ["#1a1a1a","#333"],    // 감옥
+    ["#2d4b5a","#b0d9e0"], // 예강 (바닷가 느낌)
+    ["#2d1b3d","#5a2a6d"], // 상욱
+    ["#ffd1dc","#ffb6c1"], // 고백 (핑크)
+    ["#000","#4b0000"],    // 최종
+  ];
+  const c = bgSets[stageIndex]||bgSets[0];
+  g.addColorStop(0,c[0]); g.addColorStop(1,c[1]);
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // 감옥 창살
+  if(stageIndex===3){
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    for(let x=0;x<W;x+=50) ctx.fillRect(x, 0, 6, GROUND);
+    for(let y=60;y<GROUND;y+=80) ctx.fillRect(0, y, W, 4);
+  } else {
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    for(let i=0;i<10;i++){
+      const bw=80+i*7%40, bh=80+ (i*53%120);
+      ctx.fillRect(i*100, GROUND-bh, bw, bh);
+    }
+  }
+  ctx.fillStyle = "#2a1f14";
+  ctx.fillRect(0, GROUND, W, H-GROUND);
+  ctx.fillStyle = "#3a2e20";
+  for(let x=0;x<W;x+=40) ctx.fillRect(x, GROUND, 2, 20);
+}
+
+function drawChar(e, isPlayer){
+  const r = entityRect(e);
+  const flash = (isPlayer? (player.invTimer|| (player.sealed>0?1:0)) : e.hurt) > 0 && Math.floor(Date.now()/60)%2===0;
+  const color = flash ? (isPlayer&&player.sealed>0?"#844":"#fff") : (isPlayer? "#e55" : e.color);
+  const headColor = isPlayer? "#f1c27d" : (e.head||"#f1c27d");
+  ctx.fillStyle = "rgba(0,0,0,0.4)";
+  ctx.beginPath(); ctx.ellipse(e.x, GROUND+6, e.w/2, 6, 0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = color;
+  ctx.fillRect(r.x, r.y+r.h*0.3, r.w, r.h*0.55);
+  ctx.fillStyle = "#222";
+  ctx.fillRect(r.x+4, r.y+r.h*0.85, r.w*0.35, r.h*0.15);
+  ctx.fillRect(r.x+r.w-r.w*0.35-4, r.y+r.h*0.85, r.w*0.35, r.h*0.15);
+  ctx.fillStyle = headColor;
+  const headSize = r.w*0.7;
+  ctx.fillRect(r.x+(r.w-headSize)/2, r.y, headSize, r.h*0.3);
+  ctx.fillStyle = "#000";
+  const eyeY = r.y + r.h*0.12;
+  ctx.fillRect(r.x + r.w/2 - 6, eyeY, 4, 4);
+  ctx.fillRect(r.x + r.w/2 + 2, eyeY, 4, 4);
+  ctx.fillStyle = color;
+  const armY = r.y+r.h*0.35;
+  if(e.dir>0) ctx.fillRect(r.x+r.w-4, armY, 8, r.h*0.3);
+  else ctx.fillRect(r.x-4, armY, 8, r.h*0.3);
+
+  // 준성 왕관 표시
+  if(!isPlayer && e.kind==="junsung"){
+    ctx.fillStyle = "#ffd34d";
+    ctx.beginPath();
+    ctx.moveTo(r.x+r.w*0.2, r.y);
+    ctx.lineTo(r.x+r.w*0.3, r.y-10);
+    ctx.lineTo(r.x+r.w*0.5, r.y);
+    ctx.lineTo(r.x+r.w*0.7, r.y-10);
+    ctx.lineTo(r.x+r.w*0.8, r.y);
+    ctx.closePath(); ctx.fill();
+    // 부활 하트
+    ctx.fillStyle = "#f44";
+    ctx.font = "bold 14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("♥".repeat(e.revives+1), e.x, r.y-14);
+  }
+
+  if(isPlayer && player.attackTimer>0){
+    const pab = playerAttackBox();
+    if(pab){
+      ctx.fillStyle = player.attackType===2 ? "rgba(255,180,60,0.6)" : "rgba(255,255,255,0.5)";
+      ctx.fillRect(pab.x, pab.y, pab.w, pab.h);
+    }
+  }
+  // 봉인 아이콘 표시
+  if(isPlayer && player.sealed>0){
+    ctx.fillStyle = "#f44";
+    ctx.font = "bold 20px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("🔒", e.x, r.y-6);
+  }
+
+  if(!isPlayer && e.atkCd>0 && e.atkCd<=18){
+    const eab = enemyAttackBox(e);
+    if(eab){ ctx.fillStyle = "rgba(255,80,80,0.45)"; ctx.fillRect(eab.x, eab.y, eab.w, eab.h); }
+  }
+  if(!isPlayer){
+    ctx.fillStyle="#000a"; ctx.fillRect(r.x, r.y-14, r.w, 5);
+    ctx.fillStyle="#f55"; ctx.fillRect(r.x, r.y-14, r.w*(Math.max(0,e.hp)/e.maxhp), 5);
+    ctx.fillStyle="#fff"; ctx.font="11px sans-serif"; ctx.textAlign="center";
+    ctx.fillText(e.name||"", e.x, r.y-18);
+  }
+}
+
+function drawAnimal(e){
+  const r = entityRect(e);
+  const flash = e.hurt>0 && Math.floor(Date.now()/60)%2===0;
+  ctx.fillStyle = "rgba(0,0,0,0.4)";
+  ctx.beginPath(); ctx.ellipse(e.x, GROUND+6, e.w/2, 5, 0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = flash?"#fff":e.color;
+  ctx.fillRect(r.x, r.y+r.h*0.3, r.w, r.h*0.55);
+  const hx = e.dir>0? r.x+r.w-6 : r.x-r.w*0.3+6;
+  ctx.fillRect(hx, r.y+r.h*0.1, r.w*0.3, r.h*0.4);
+  ctx.fillStyle = "#111";
+  ctx.fillRect(r.x+4, r.y+r.h*0.8, 6, r.h*0.2);
+  ctx.fillRect(r.x+r.w-10, r.y+r.h*0.8, 6, r.h*0.2);
+  ctx.fillStyle="#fff";
+  ctx.fillRect(hx + (e.dir>0?r.w*0.2:4), r.y+r.h*0.2, 3,3);
+  ctx.fillStyle="#000a"; ctx.fillRect(r.x, r.y-14, r.w, 5);
+  ctx.fillStyle="#f55"; ctx.fillRect(r.x, r.y-14, r.w*(Math.max(0,e.hp)/e.maxhp), 5);
+  ctx.fillStyle="#fff"; ctx.font="11px sans-serif"; ctx.textAlign="center";
+  ctx.fillText(e.name||"", e.x, r.y-18);
+  if(e.atkCd>0 && e.atkCd<=18){
+    const eab = enemyAttackBox(e);
+    if(eab){ ctx.fillStyle = "rgba(255,80,80,0.45)"; ctx.fillRect(eab.x, eab.y, eab.w, eab.h); }
+  }
+}
+
+function drawEffects(){
+  ctx.textAlign="center";
+  for(const f of effects){
+    ctx.globalAlpha = Math.min(1, f.life/20);
+    if(f.slam){
+      ctx.strokeStyle = f.color; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(f.x, f.y, (30-f.life)*2, 0, Math.PI*2); ctx.stroke();
+    } else {
+      ctx.fillStyle = f.color;
+      ctx.font = (f.big?"bold 22px":"bold 18px") + " sans-serif";
+      ctx.fillText(f.text, f.x, f.y - (f.big?(60-f.life)*0.5:(30-f.life)));
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+function render(){
+  drawBg();
+  for(const e of enemies){
+    if(e.animal) drawAnimal(e);
+    else drawChar(e,false);
+  }
+  if(boss) drawChar(boss,false);
+  drawChar(player,true);
+  drawEffects();
+}
+
+function loop(){ update(); render(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
